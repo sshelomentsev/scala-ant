@@ -43,6 +43,7 @@ import scala.tools.nsc.reporters.ConsoleReporter
  *  - `dependencyfile`,
  *  - `encoding`,
  *  - `target`,
+ *  - `release`,
  *  - `force`,
  *  - `fork`,
  *  - `logging`,
@@ -82,6 +83,8 @@ class Scalac extends ScalaMatchingTask with ScalacShared {
     val values: List[String]
     def isPermissible(value: String): Boolean =
       (value == "") || values.exists(_.startsWith(value))
+
+    def isInRange(value: String): Boolean = values.exists(_.equals(value))
   }
 
   /** Defines valid values for the logging property. */
@@ -101,6 +104,11 @@ class Scalac extends ScalaMatchingTask with ScalacShared {
   /** Defines valid values for the `target` property. */
   object Target extends PermissibleValue {
     val values: List[String] = List("8", "9", "10", "11", "12")
+  }
+
+  /** Defines valid values from the `release` property. */
+  object Release extends PermissibleValue {
+    val values: List[String] = List("6", "7", "8", "9")
   }
 
   /** Defines valid values for the `deprecation` and `unchecked` properties. */
@@ -136,6 +144,9 @@ class Scalac extends ScalaMatchingTask with ScalacShared {
 
   // the targeted backend
   protected var backend: Option[String] = None
+
+  /** Compile for a specific version of the Java platform */
+  protected var release: Option[String] = None
 
   /** Whether to force compilation of all files or not. */
   protected var force: Boolean = false
@@ -320,6 +331,14 @@ class Scalac extends ScalaMatchingTask with ScalacShared {
   def setTarget(input: String): Unit =
     if (Target.isPermissible(input)) backend = Some(input)
     else buildError("Unknown target '" + input + "'")
+
+  /** Sets the `release` attribute. Used by [[http://ant.apache.org Ant]].
+   *  @param input The value from `release`. */
+  def setRelease(input: String): Unit =
+    if (Release.isInRange(input)) release = Some(input)
+    else if (input.isEmpty)
+      log("Skip release option as it specified as empty")
+    else buildError("Unknown release '" + input + "'")
 
   /** Sets the `force` attribute. Used by [[http://ant.apache.org Ant]].
    *  @param input The value for `force`. */
@@ -587,6 +606,7 @@ class Scalac extends ScalaMatchingTask with ScalacShared {
       settings.dependencyfile.value = asString(dependencyfile.get)
     if (!encoding.isEmpty) settings.encoding.value = encoding.get
     if (!backend.isEmpty) settings.target.value = backend.get
+    if (!release.isEmpty) settings.release.value = release.get
     if (!logging.isEmpty && logging.get == "verbose")
       settings.verbose.value = true
     else if (!logging.isEmpty && logging.get == "debug") {
